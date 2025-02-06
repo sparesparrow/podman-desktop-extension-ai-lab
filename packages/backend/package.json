@@ -111,6 +111,7 @@
     "postman-collection": "^4.5.0",
     "semver": "^7.7.1",
     "systeminformation": "^5.25.11",
+    "uuid": "^9.0.1",
     "xml-js": "^1.6.11"
   },
   "devDependencies": {
@@ -122,6 +123,7 @@
     "@types/node": "^20",
     "@types/postman-collection": "^3.5.10",
     "@types/supertest": "^6.0.2",
+    "@types/uuid": "^9.0.8",
     "openapi-typescript": "^7.6.1",
     "supertest": "^7.0.0",
     "vitest": "^2.1.8"

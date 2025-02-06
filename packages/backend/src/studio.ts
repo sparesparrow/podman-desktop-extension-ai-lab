@@ -54,6 +54,7 @@ import { InstructlabApiImpl } from './instructlab-api-impl';
 import { NavigationRegistry } from './registries/NavigationRegistry';
 import { StudioAPI } from '@shared/src/StudioAPI';
 import { InstructlabAPI } from '@shared/src/InstructlabAPI';
+import { ErrorService } from './services/error-service';
 
 export class Studio {
   readonly #extensionContext: ExtensionContext;
@@ -90,6 +91,7 @@ export class Studio {
   #gpuManager: GPUManager | undefined;
   #navigationRegistry: NavigationRegistry | undefined;
   #instructlabManager: InstructlabManager | undefined;
+  #errorService: ErrorService | undefined;
 
   constructor(readonly extensionContext: ExtensionContext) {
     this.#extensionContext = extensionContext;
@@ -127,7 +129,7 @@ export class Studio {
     /**
      * Storage directory for the extension provided by podman desktop
      */
-    const appUserDirectory = this.extensionContext.storagePath;
+    const appUserDirectory = this.#extensionContext.storagePath;
 
     this.#telemetry.logUsage('start');
 
@@ -362,10 +364,17 @@ export class Studio {
     this.#instructlabApi = new InstructlabApiImpl(this.#instructlabManager);
     // Register the instance
     this.#rpcExtension.registerInstance<InstructlabAPI>(InstructlabAPI, this.#instructlabApi);
+
+    // Initialize error service
+    this.#errorService = new ErrorService(this.#panel.webview);
+
+    // Register error service methods
+    this.#studioApi?.setErrorService(this.#errorService);
   }
 
   public async deactivate(): Promise<void> {
     console.log('stopping AI Lab extension');
     this.#telemetry?.logUsage('stop');
+    this.#errorService?.dispose();
   }
 }

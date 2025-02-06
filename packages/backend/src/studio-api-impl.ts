@@ -57,6 +57,9 @@ import type { RecipePullOptions } from '@shared/src/models/IRecipe';
 import type { ContainerProviderConnection } from '@podman-desktop/api';
 import type { NavigationRegistry } from './registries/NavigationRegistry';
 import type { FilterRecipesResult, RecipeFilters } from '@shared/src/models/FilterRecipesResult';
+import type { ErrorService } from './services/error-service';
+import type { ErrorState } from '@shared/src/models/IError';
+import type { ServiceMetadata } from '@shared/src/models/ServiceMetadata';
 
 interface PortQuickPickItem extends podmanDesktopApi.QuickPickItem {
   port: number;
@@ -79,6 +82,8 @@ export class StudioApiImpl implements StudioAPI {
     private podmanConnection: PodmanConnection,
     private navigationRegistry: NavigationRegistry,
   ) {}
+
+  private errorService?: ErrorService;
 
   async readRoute(): Promise<string | undefined> {
     return this.navigationRegistry.readRoute();
@@ -545,5 +550,44 @@ export class StudioApiImpl implements StudioAPI {
     options: CheckContainerConnectionResourcesOptions,
   ): Promise<ContainerConnectionInfo> {
     return this.podmanConnection.checkContainerConnectionStatusAndResources(options);
+  }
+
+  setErrorService(service: ErrorService): void {
+    this.errorService = service;
+  }
+
+  async getErrors(): Promise<ErrorState[]> {
+    if (!this.errorService) {
+      return [];
+    }
+    return this.errorService.getErrors();
+  }
+
+  async acknowledgeError(id: string): Promise<void> {
+    if (!this.errorService) {
+      return;
+    }
+    await this.errorService.acknowledgeError(id);
+  }
+
+  async createError(error: Omit<ErrorState, 'id' | 'timestamp'>): Promise<ErrorState> {
+    if (!this.errorService) {
+      throw new Error('Error service not initialized');
+    }
+    return this.errorService.createError(error);
+  }
+
+  async resolveServiceUri(uri: string): Promise<ServiceMetadata> {
+    if (!uri.startsWith('mcp://')) {
+      throw new Error("URI does not start with 'mcp://'");
+    }
+    // Transform mcp://api.myservice.com into https://api.myservice.com/llms.txt
+    const transformedUrl = 'https://' + uri.slice(6) + '/llms.txt';
+    const response = await fetch(transformedUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch service metadata from ${transformedUrl}`);
+    }
+    const data = await response.json();
+    return data as ServiceMetadata;
   }
 }

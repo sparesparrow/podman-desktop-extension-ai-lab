@@ -7,7 +7,7 @@
     "lib": [
       "ES2017",
       "webworker",
-      "dom",
+      "dom"
     ],
     "sourceMap": true,
     "outDir": "dist",
@@ -15,14 +15,16 @@
     "skipLibCheck": true,
     "types": [
       "node",
+      "vitest"
     ],
     "paths": {
-      "@shared/*": ["../shared/*"]
+      "@shared/*": ["../shared/*"],
+      "@podman-desktop/api": ["../../types/podman-desktop-api"]
     },
     "strict": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,
-    "noUnusedLocals": true,
+    "noUnusedLocals": true
   },
   "include": [
     "src",
@@ -30,6 +32,5 @@
     "../../types/*.d.ts",
     "../shared/*.ts",
     "../shared/**/*.ts"
-  ],
-
+  ]
 }
