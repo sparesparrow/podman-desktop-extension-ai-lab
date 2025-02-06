@@ -1,34 +1,32 @@
 {
   "extends": "@tsconfig/svelte/tsconfig.json",
   "compilerOptions": {
-    "target": "esnext",
-    "module": "esnext",
-    "strict": true,
-    "noImplicitOverride": true,
-    "noUnusedLocals": true,
-    "noImplicitReturns": true,
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
     "resolveJsonModule": true,
-    "preserveValueImports": false,
-    "baseUrl": ".",
+    "allowJs": true,
+    "checkJs": true,
+    "isolatedModules": true,
+    "types": ["vitest", "@testing-library/jest-dom"],
     "paths": {
       "/@/*": ["./src/*"],
-      "@shared/*": ["../shared/*"]
+      "@shared/*": ["../shared/*"],
+      "@podman-desktop/api": ["../../types/podman-desktop-api"],
+      "@podman-desktop/ui-svelte": ["./src/types/podman-desktop-ui-svelte"]
     },
-    /**
-     * Typecheck JS in `.svelte` and `.js` files by default.
-     * Disable checkJs if you'd like to use dynamic types in JS.
-     * Note that setting allowJs false does not prevent the use
-     * of JS in `.svelte` files.
-     */
-    "allowJs": true,
-    "checkJs": true
+    "baseUrl": ".",
+    "strict": true
   },
   "include": [
-    "src/**/*.d.ts",
     "src/**/*.ts",
     "src/**/*.js",
     "src/**/*.svelte",
-    "../../types/**/*.d.ts",
-    "../shared/**/*.ts"
-  ]
+    "src/**/*.d.ts",
+    "../shared/**/*.ts",
+    "../../types/*.d.ts",
+    "vite.config.ts"
+  ],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

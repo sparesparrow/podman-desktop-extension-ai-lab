@@ -1,8 +1,18 @@
+<style>
+.recipe-start-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ... rest of styles ... */
+</style>
+
 <script lang="ts">
 import { faFolder, faRocket, faUpRightFromSquare, faWarning } from '@fortawesome/free-solid-svg-icons';
 import { catalog } from '/@/stores/catalog';
 import Fa from 'svelte-fa';
-import type { Recipe } from '@shared/src/models/IRecipe';
+import type { Recipe, RecipePullOptions } from '@shared/src/models/IRecipe';
 import type { LocalRepository } from '@shared/src/models/ILocalRepository';
 import { findLocalRepositoryByRecipeId } from '/@/utils/localRepositoriesUtils';
 import { localRepositories } from '/@/stores/localRepositories';
@@ -20,6 +30,8 @@ import ModelSelect from '/@/lib/select/ModelSelect.svelte';
 import ContainerProviderConnectionSelect from '/@/lib/select/ContainerProviderConnectionSelect.svelte';
 import ContainerConnectionWrapper from '/@/lib/notification/ContainerConnectionWrapper.svelte';
 import TrackedTasks from '/@/lib/progress/TrackedTasks.svelte';
+import ErrorDisplay from '../components/ErrorDisplay.svelte';
+import { filterByLabel } from '/@/utils/taskUtils';
 
 interface Props {
   recipeId: string;
@@ -53,6 +65,8 @@ let completed: boolean = $state(false);
 
 let errorMsg: string | undefined = $state(undefined);
 
+let trackedTasks: Task[] = $state([]);
+
 $effect(() => {
   // Select default connection
   if (!containerProviderConnection && startedContainerProviderConnectionInfo.length > 0) {
@@ -73,7 +87,16 @@ const getFirstRecommended = (): ModelInfo | undefined => {
   return model;
 };
 
-const processTasks = (trackedTasks: Task[]): void => {
+function processTasks(tasks: Task[]): void {
+  if (!trackingId) {
+    trackedTasks = [];
+    return;
+  }
+
+  trackedTasks = filterByLabel(tasks, {
+    trackingId: trackingId,
+  });
+
   // if one task is in loading we are still loading
   loading = !!trackingId && trackedTasks.some(task => task.state === 'loading');
 
@@ -82,12 +105,12 @@ const processTasks = (trackedTasks: Task[]): void => {
 
   // if we re-open the page, we might need to restore the model selected
   populateModelFromTasks(trackedTasks);
-};
+}
 
 // This method uses the trackedTasks to restore the selected value of model
 // It is useful when the page has been restored
-function populateModelFromTasks(trackedTasks: Task[]): void {
-  const task = trackedTasks.find(
+function populateModelFromTasks(tasks: Task[]): void {
+  const task = tasks.find(
     task => task.labels && 'model-id' in task.labels && typeof task.labels['model-id'] === 'string',
   );
   const modelId = task?.labels?.['model-id'];
@@ -99,20 +122,27 @@ function populateModelFromTasks(trackedTasks: Task[]): void {
   model = nModel;
 }
 
-async function submit(): Promise<void> {
-  if (!recipe || !model) return;
+async function startRecipe(): Promise<void> {
+  if (!containerProviderConnection) {
+    throw new Error('No running container engine found');
+  }
+  if (!recipe?.id) {
+    throw new Error('Recipe ID is required');
+  }
+  if (!model?.id) {
+    throw new Error('Model ID is required');
+  }
 
-  errorMsg = undefined;
+  const options: RecipePullOptions = {
+    recipeId: recipe.id,
+    modelId: model.id,
+    connection: containerProviderConnection,
+  };
 
   try {
-    const trackingId = await studioClient.requestPullApplication({
-      recipeId: $state.snapshot(recipe.id),
-      modelId: $state.snapshot(model.id),
-      connection: $state.snapshot(containerProviderConnection),
-    });
-    router.location.query.set('trackingId', trackingId);
+    trackingId = await studioClient.requestPullApplication(options);
   } catch (err: unknown) {
-    console.error('Something wrong while trying to create the inference server.', err);
+    console.error('Something went wrong while trying to pull the application.', err);
     errorMsg = String(err);
   }
 }
@@ -208,7 +238,7 @@ function handleOnClick(): void {
                 <Button
                   title="Start {recipe.name} recipe"
                   inProgress={loading}
-                  on:click={submit}
+                  on:click={startRecipe}
                   disabled={!model || loading || !containerProviderConnection}
                   icon={faRocket}>
                   Start {recipe.name} recipe
@@ -221,3 +251,7 @@ function handleOnClick(): void {
     </div>
   </svelte:fragment>
 </FormPage>
+
+<div class="recipe-start-container">
+  <ErrorDisplay />
+</div>

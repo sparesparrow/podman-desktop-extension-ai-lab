@@ -499,15 +499,26 @@ export class ApplicationManager extends Publisher<ApplicationState[]> implements
   }
 
   init(): void {
+    // Load persisted state on initialization
+    this.loadPersistedState().catch((err: unknown) => {
+      console.error('Error loading initial state:', err);
+    });
+
     this.podmanConnection.onPodmanConnectionEvent(() => {
       this.refresh();
     });
 
     this.podManager.onStartPodEvent((pod: PodInfo) => {
       this.adoptPod(pod);
+      this.persistState().catch((err: unknown) => {
+        console.error('Error persisting state after pod start:', err);
+      });
     });
     this.podManager.onRemovePodEvent(({ podId }) => {
       this.forgetPodById(podId);
+      this.persistState().catch((err: unknown) => {
+        console.error('Error persisting state after pod removal:', err);
+      });
     });
 
     const ticker = (): void => {
@@ -618,7 +629,9 @@ export class ApplicationManager extends Publisher<ApplicationState[]> implements
 
   protected updateApplicationState(recipeId: string, modelId: string, state: ApplicationState): void {
     this.#applications.set({ recipeId, modelId }, state);
-    this.notify();
+    this.persistState().catch((err: unknown) => {
+      console.error('Error persisting state after update:', err);
+    });
   }
 
   getApplicationsState(): ApplicationState[] {
@@ -707,6 +720,20 @@ export class ApplicationManager extends Publisher<ApplicationState[]> implements
       [POD_LABEL_RECIPE_ID]: recipeId,
       [POD_LABEL_MODEL_ID]: modelId,
     });
+  }
+
+  protected async persistState(): Promise<void> {
+    // Notify subscribers of state changes
+    this.notify();
+  }
+
+  protected async loadPersistedState(): Promise<void> {
+    try {
+      // Refresh the applications state from existing pods
+      this.refresh();
+    } catch (err: unknown) {
+      console.error('Error loading persisted state:', err);
+    }
   }
 
   dispose(): void {

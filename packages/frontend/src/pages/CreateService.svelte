@@ -1,3 +1,13 @@
+<style>
+.create-service-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ... rest of styles ... */
+</style>
+
 <script lang="ts">
 import { faExclamationCircle, faLocationArrow, faPlus, faPlusCircle } from '@fortawesome/free-solid-svg-icons';
 import { modelsInfo } from '/@/stores/modelsInfo';
@@ -16,51 +26,32 @@ import { containerProviderConnections } from '/@/stores/containerProviderConnect
 import ContainerProviderConnectionSelect from '/@/lib/select/ContainerProviderConnectionSelect.svelte';
 import ContainerConnectionWrapper from '/@/lib/notification/ContainerConnectionWrapper.svelte';
 import TrackedTasks from '/@/lib/progress/TrackedTasks.svelte';
+import ErrorDisplay from '../components/ErrorDisplay.svelte';
 
-interface Props {
-  // The tracking id is a unique identifier provided by the
-  // backend when calling requestCreateInferenceServer
-  trackingId?: string;
-}
+let trackingId: string | undefined;
+let containerProviderConnection: ContainerProviderConnectionInfo | undefined;
+let containerPort: number | undefined;
+let model: ModelInfo | undefined;
+let errorMsg: string | undefined;
+let containerId: string | undefined;
+let loading = false;
 
-let { trackingId }: Props = $props();
-
-// List of the models available locally
-let localModels: ModelInfo[] = $derived($modelsInfo.filter(model => model.file));
-
-// The container provider connection to use
-let containerProviderConnection: ContainerProviderConnectionInfo | undefined = $state(undefined);
-
-// Filtered connections (started)
-let startedContainerProviderConnectionInfo: ContainerProviderConnectionInfo[] = $derived(
-  $containerProviderConnections.filter(connection => connection.status === 'started'),
+// Reactive declarations
+$: localModels = $modelsInfo.filter(model => model.file);
+$: startedContainerProviderConnectionInfo = $containerProviderConnections.filter(
+  connection => connection.status === 'started',
 );
+$: available = !!containerId && $inferenceServers.some(server => server.container.containerId);
 
-// The containerPort is the bind value to form input
-let containerPort: number | undefined = $state(undefined);
-// The model is the bind value to ModelSelect form
-let model: ModelInfo | undefined = $state(undefined);
-// If the creation of a new inference service fail
-let errorMsg: string | undefined = $state(undefined);
-// The containerId will be included in the tasks when the creation
-// process will be completed
-let containerId: string | undefined = $state(undefined);
-// available means the server is started
-let available: boolean = $derived(!!containerId && $inferenceServers.some(server => server.container.containerId));
-// loading state
-let loading = $derived(trackingId !== undefined && !errorMsg);
-
-$effect(() => {
-  // Select default model
+// Effect for default selections
+$: {
   if (!model && localModels.length > 0) {
     model = localModels[0];
   }
-
-  // Select default connection
   if (!containerProviderConnection && startedContainerProviderConnectionInfo.length > 0) {
     containerProviderConnection = startedContainerProviderConnectionInfo[0];
   }
-});
+}
 
 const onContainerPortInput = (event: Event): void => {
   const raw = (event.target as HTMLInputElement).value;
@@ -150,6 +141,33 @@ onMount(() => {
 
 export function goToUpPage(): void {
   router.goto('/services');
+}
+
+async function createInferenceServer(): Promise<void> {
+  try {
+    if (!model || !containerProviderConnection) {
+      throw new Error('Missing required fields');
+    }
+
+    loading = true;
+    trackingId = await studioClient.requestCreateInferenceServer({
+      modelId: model.id,
+      connectionName: containerProviderConnection.name,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    await studioClient.createError({
+      message,
+      acknowledged: false,
+      source: 'Inference Server Creation',
+      details: {
+        model: model?.id,
+        connection: containerProviderConnection?.name,
+      },
+    });
+  } finally {
+    loading = false;
+  }
 }
 </script>
 
@@ -250,3 +268,7 @@ export function goToUpPage(): void {
     </div>
   </svelte:fragment>
 </FormPage>
+
+<div class="create-service-container">
+  <ErrorDisplay />
+</div>

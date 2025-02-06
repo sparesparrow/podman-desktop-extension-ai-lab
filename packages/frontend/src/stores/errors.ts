@@ -20,22 +20,22 @@ import type { Readable } from 'svelte/store';
 import { readable } from 'svelte/store';
 import { Messages } from '@shared/Messages';
 import { rpcBrowser, studioClient } from '/@/utils/client';
-import type { ApplicationState } from '@shared/src/models/IApplicationState';
+import type { ErrorState } from '@shared/src/models/IError';
 
-export const applicationStates: Readable<ApplicationState[]> = readable<ApplicationState[]>([], set => {
-  // Subscribe to state updates from backend
-  const sub = rpcBrowser.subscribe(Messages.MSG_NEW_PULLED_APPLICATION_STATE, msg => {
+export const errors: Readable<ErrorState[]> = readable<ErrorState[]>([], set => {
+  // Subscribe to error updates from backend
+  const sub = rpcBrowser.subscribe(Messages.MSG_NEW_ERROR_STATE, msg => {
     set(msg);
   });
 
-  // Request initial state
+  // Request initial error state
   studioClient
-    .getApplicationsState()
+    .getErrors()
     .then(state => {
       set(state);
     })
     .catch((err: unknown) => {
-      console.error('Error getting applications state:', err);
+      console.error('Error getting error state:', err);
       // Initialize with empty state on error
       set([]);
     });
@@ -45,3 +45,11 @@ export const applicationStates: Readable<ApplicationState[]> = readable<Applicat
     sub.unsubscribe();
   };
 });
+
+export async function acknowledgeError(id: string): Promise<void> {
+  try {
+    await studioClient.acknowledgeError(id);
+  } catch (err: unknown) {
+    console.error('Error acknowledging error:', err);
+  }
+} 

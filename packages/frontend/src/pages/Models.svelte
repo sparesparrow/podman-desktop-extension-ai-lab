@@ -1,3 +1,13 @@
+<style>
+.models-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ... rest of styles ... */
+</style>
+
 <script lang="ts">
 import type { ModelInfo } from '@shared/src/models/IModelInfo';
 import { modelsInfo } from '../stores/modelsInfo';
@@ -16,6 +26,7 @@ import { tasks } from '/@/stores/tasks';
 import ModelStatusIcon from '../lib/icons/ModelStatusIcon.svelte';
 import { router } from 'tinro';
 import { faBookOpen, faFileImport } from '@fortawesome/free-solid-svg-icons';
+import { ErrorDisplay } from '../components/ErrorDisplay.svelte';
 
 const columns = [
   new TableColumn<ModelInfo>('Status', {
@@ -43,14 +54,12 @@ const columns = [
 ];
 const row = new TableRow<ModelInfo>({});
 
-let loading: boolean = true;
-
+let loading = true;
 let pullingTasks: Task[] = [];
 let models: ModelInfo[] = [];
-
-// filtered mean, we remove the models that are being downloaded
 let filteredModels: ModelInfo[] = [];
 
+// Reactive declarations for filtered models
 $: localModels = filteredModels.filter(model => model.file && model.url);
 $: remoteModels = filteredModels.filter(model => !model.file);
 $: importedModels = filteredModels.filter(model => !model.url);
@@ -103,6 +112,22 @@ onMount(() => {
 async function importModel(): Promise<void> {
   router.goto('/models/import');
 }
+
+async function downloadModel(modelId: string): Promise<void> {
+  try {
+    await studioClient.downloadModel(modelId);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    await studioClient.createError({
+      message,
+      acknowledged: false,
+      source: 'Model Download',
+      details: {
+        modelId,
+      },
+    });
+  }
+}
 </script>
 
 <NavPage title="Models" searchEnabled={false}>
@@ -117,6 +142,7 @@ async function importModel(): Promise<void> {
   </svelte:fragment>
   <svelte:fragment slot="content">
     <div class="flex flex-col min-w-full min-h-full space-y-5">
+      <ErrorDisplay />
       {#if !loading}
         {#if pullingTasks.length > 0}
           <div class="w-full px-5">
